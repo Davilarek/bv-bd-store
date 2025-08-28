@@ -19,6 +19,7 @@
 import { SettingsTab, wrapTab } from "@components/settings/tabs";
 import definePlugin from "@utils/types";
 
+import { PLUGIN_NAME, TAB_NAME } from "./constants";
 import { injectTab, unInjectTab } from "./util";
 
 const StoreTab = () => {
@@ -41,7 +42,7 @@ export default definePlugin({
     authors: [
         { id: 0n, name: "Davil" },
     ],
-    description: "Adds a tab for compat layer plugins",
+    description: "Adds a tab for compat layer plugins.",
     start() {
         injectTab(createStoreTab);
     },

@@ -16,6 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-const TAB_NAME = "Plugin Store";
-const PLUGIN_NAME = "BD " + TAB_NAME;
-const API_BASE = "https://api.betterdiscord.app/v3/";
+export const TAB_NAME = "Plugin Store";
+export const PLUGIN_NAME = ("BD " + TAB_NAME).split("").filter(x=>x !== " ").join("");
+export const API_BASE = "https://api.betterdiscord.app/v3/";
