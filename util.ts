@@ -1,6 +1,6 @@
 /*
- * Vencord, a modification for Discord's desktop app
- * Copyright (c) 2023 Vendicated and contributors
+ * BDStore Plugin for BetterVencordPatchset
+ * Copyright (c) 2026 Davilarek and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,24 +18,52 @@
 
 import { Plugin } from "@utils/types";
 
-type SettingsEntry = {
+type LegacySettingsEntry = {
     section: string;
     label: string;
     element: React.FunctionComponent<any>;
     className: string;
 };
 
-type SettingsPlugin = Plugin & {
-    customSections: ((ID: Record<string, unknown>) => SettingsEntry)[];
+/* function createFilesSystemViewTabV2() {
+    return {
+        title: TabName,
+        Component: wrapTab(makeTab, TabName),
+        key: `${typeof Vencord.Util.isEquicordGuild === "undefined" ? "vencord" : "equicord"}_bv_fs_view`,
+        Icon: FolderIcon,
+    };
+} */
+type SettingsTabV2 = {
+    title: string;
+    Component: React.FunctionComponent<any>;
+    key: string;
+    Icon: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
 };
 
-export function injectTab(builder: (ID: Record<string, unknown>) => SettingsEntry) {
+type SettingsPlugin = Plugin & {
+    customSections: ((ID: Record<string, unknown>) => LegacySettingsEntry)[];
+    customEntries: SettingsTabV2[];
+};
+
+export function injectTab(builder: () => SettingsTabV2) {
+    const settingsPlugin = Vencord.Plugins.plugins.Settings as SettingsPlugin;
+    const { customEntries } = settingsPlugin;
+    customEntries.push(builder());
+}
+
+export function unInjectTab(builder: () => SettingsTabV2) {
+    const settingsPlugin = Vencord.Plugins.plugins.Settings as SettingsPlugin;
+    const { customEntries } = settingsPlugin;
+    customEntries.splice(customEntries.findIndex(x => x.key === builder().key), 1);
+}
+
+export function injectTabLegacy(builder: (ID: Record<string, unknown>) => LegacySettingsEntry) {
     const settingsPlugin = Vencord.Plugins.plugins.Settings as SettingsPlugin;
     const { customSections } = settingsPlugin;
     customSections.push(builder);
 }
 
-export function unInjectTab(builder: (ID: Record<string, unknown>) => SettingsEntry) {
+export function unInjectTabLegacy(builder: (ID: Record<string, unknown>) => LegacySettingsEntry) {
     const settingsPlugin = Vencord.Plugins.plugins.Settings as SettingsPlugin;
     const { customSections } = settingsPlugin;
     customSections.splice(customSections.findIndex(x => x({}).className === builder({}).className), 1);

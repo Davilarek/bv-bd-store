@@ -16,7 +16,32 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export const TAB_NAME = "Plugin Store";
-export const PLUGIN_NAME = ("BD " + TAB_NAME).split("").filter(x=>x !== " ").join("");
-export const API_BASE = "https://api.betterdiscord.app/v3";
-export const HOME_BASE = "https://betterdiscord.app";
+export interface PluginAuthor {
+    display_name: string;
+}
+
+export interface ApiPlugin {
+    id: number;
+    name: string;
+    author: PluginAuthor;
+    description: string;
+    version: string;
+    file_name: string;
+    downloads: number;
+    likes: number;
+    tags: string[];
+    initial_release_date: string;
+    latest_release_date: string;
+    latest_source_url?: string;
+    thumbnail_url: string;
+}
+
+export interface PluginSearchParams {
+    query?: string;
+    tags?: string[];
+    author?: string;
+    limit?: number;
+    offset?: number;
+    sortBy?: 'name' | 'downloads' | 'likes' | 'updated' | 'added';
+    sortOrder?: 'asc' | 'desc';
+}

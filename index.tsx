@@ -1,6 +1,6 @@
 /*
- * Vencord, a modification for Discord's desktop app
- * Copyright (c) 2023 Vendicated and contributors
+ * BDStore Plugin for BetterVencordPatchset
+ * Copyright (c) 2026 Davilarek and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,24 +16,116 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { SettingsTab, wrapTab } from "@components/settings/tabs";
+import { wrapTab } from "@components/settings/tabs";
 import definePlugin from "@utils/types";
+import { React } from "@webpack/common";
 
 import { PLUGIN_NAME, TAB_NAME } from "./constants";
 import { injectTab, unInjectTab } from "./util";
+import { PluginsIcon } from "@components/Icons";
+import StoreTabContent from "./components/StoreTab";
+import { pluginStoreService } from "./api/service";
+import { ApiPlugin } from "./api/models";
+import { PluginsHolder } from "@plugins/bdCompatLayer/fakeBdApi";
+import { queueLoad } from "@plugins/bdCompatLayer/pluginConstructor";
+import { getDeferred } from "@plugins/bdCompatLayer/utils";
 
-const StoreTab = () => {
-    return <SettingsTab title={TAB_NAME}>
+function usePluginStore() {
+    const [plugins, setPlugins] = React.useState<ApiPlugin[]>([]);
+    const [loading, setLoading] = React.useState(true);
+    const [offset, setOffset] = React.useState(0);
+    const [hasMore, setHasMore] = React.useState(true);
+    const limit = 20;
 
-    </SettingsTab>;
-};
+    const isInstalled = (plugin: ApiPlugin) => {
+        const result = PluginsHolder.get(plugin.name);
+        if (result) {
+            if (result.name !== plugin.name) {
+                return { installed: true, shadow: result.name, version: result.version };
+            }
+            return { installed: true, shadow: null, version: result.version };
+        }
+        return { installed: false, shadow: null, version: null };
+    };
 
-function createStoreTab(ID: Record<string, unknown>) {
+    const loadPlugins = async (reset = false) => {
+        if (reset) {
+            setLoading(true);
+            setOffset(0);
+        } else if (loading) {
+            return;
+        }
+
+        try {
+            const newPlugins = await pluginStoreService.getPlugins({
+                limit, // I have no idea if betterdiscord api supports pagination but if it does this should work
+                offset: reset ? 0 : offset,
+                sortBy: 'downloads',
+                sortOrder: 'desc'
+            });
+
+            setPlugins(prev => reset ? newPlugins : [...prev, ...newPlugins]);
+            setHasMore(newPlugins.length >= limit);
+            if (!reset) setOffset(prev => prev + limit);
+        } catch (error) {
+            console.error('Error loading plugins:', error);
+        } finally {
+            if (reset) setLoading(false);
+        }
+    };
+
+    const installPlugin = async (plugin: ApiPlugin) => {
+        try {
+            const pluginContent = await pluginStoreService.getPluginFile(plugin);
+            const fs = window.require("fs");
+            const path = window.require("path");
+            const pluginsDir = PluginsHolder.folder;
+            const pluginPath = path.join(pluginsDir, plugin.file_name);
+
+            fs.writeFileSync(pluginPath, pluginContent, "utf-8");
+            const deferredReady = getDeferred<void>();
+            queueLoad(pluginPath, deferredReady);
+            await deferredReady.promise;
+        } catch (error) {
+            console.error(`Error installing plugin ${plugin.name}:`, error);
+        }
+    };
+
+    React.useEffect(() => {
+        loadPlugins(true);
+    }, []);
+
     return {
-        section: "VencordBDStore", // workaround
-        label: TAB_NAME,
-        element: wrapTab(StoreTab, TAB_NAME),
-        className: "bv-store-view",
+        plugins,
+        loading,
+        hasMore,
+        onLoadMore: () => loadPlugins(false),
+        onInstall: installPlugin,
+        isInstalled
+    };
+}
+
+function StoreTab() {
+    const pluginStore = usePluginStore();
+
+    return (
+        <StoreTabContent
+            plugins={pluginStore.plugins}
+            loading={pluginStore.loading}
+            onLoadMore={pluginStore.onLoadMore}
+            hasMore={pluginStore.hasMore}
+            onInstall={pluginStore.onInstall}
+            isInstalled={pluginStore.isInstalled}
+        />
+    );
+}
+
+function createStoreTab() {
+    return {
+        title: TAB_NAME,
+        Component: wrapTab(StoreTab, TAB_NAME),
+        key: `${typeof (Vencord.Util as any).isEquicordGuild === "undefined" ? "vencord" : "equicord"}_bd_store`,
+        Icon: PluginsIcon,
     };
 }
 
