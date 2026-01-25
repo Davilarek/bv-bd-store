@@ -20,7 +20,7 @@ import { wrapTab } from "@components/settings/tabs";
 import definePlugin from "@utils/types";
 import { React } from "@webpack/common";
 
-import { PLUGIN_NAME, TAB_NAME } from "./constants";
+import { API_BASE, HOME_BASE, PLUGIN_NAME, TAB_NAME } from "./constants";
 import { injectTab, unInjectTab } from "./util";
 import { PluginsIcon } from "@components/Icons";
 import StoreTabContent from "./components/StoreTab";
@@ -28,7 +28,7 @@ import { pluginStoreService } from "./api/service";
 import { ApiPlugin } from "./api/models";
 import { PluginsHolder } from "@plugins/bdCompatLayer/fakeBdApi";
 import { queueLoad } from "@plugins/bdCompatLayer/pluginConstructor";
-import { getDeferred } from "@plugins/bdCompatLayer/utils";
+import { compat_logger, getDeferred } from "@plugins/bdCompatLayer/utils";
 
 function usePluginStore() {
     const [plugins, setPlugins] = React.useState<ApiPlugin[]>([]);
@@ -129,6 +129,38 @@ function createStoreTab() {
     };
 }
 
+async function checkStoreUrlCsp() {
+    if (IS_WEB) return true;
+
+    if (await VencordNative.csp.isDomainAllowed(API_BASE, ["connect-src"])) {
+        compat_logger.debug("CSP for BD Store API is allowed");
+        return true;
+    }
+
+    const res = await VencordNative.csp.requestAddOverride(API_BASE, ["connect-src"], "BD Compat Layer: BD Store (API)");
+    if (res === "ok") {
+        compat_logger.debug("CSP for BD Store API is allowed from now");
+        return true;
+    }
+    return false;
+}
+
+async function checkRedirectUrlCsp() {
+    if (IS_WEB) return true;
+
+    if (await VencordNative.csp.isDomainAllowed(HOME_BASE, ["connect-src"])) {
+        compat_logger.debug("CSP for BD Store Home is allowed");
+        return true;
+    }
+
+    const res = await VencordNative.csp.requestAddOverride(HOME_BASE, ["connect-src"], "BD Compat Layer: BD Store (Home)");
+    if (res === "ok") {
+        compat_logger.debug("CSP for BD Store Home is allowed from now");
+        return true;
+    }
+    return false;
+}
+
 export default definePlugin({
     name: PLUGIN_NAME,
     authors: [
@@ -136,6 +168,17 @@ export default definePlugin({
     ],
     description: "Adds a tab for compat layer plugins.",
     start() {
+        checkStoreUrlCsp().then((allowed) => {
+            if (!allowed) {
+                compat_logger.error("CSP for CORS Proxy was not allowed, BD Store may not work properly");
+            } else {
+                checkRedirectUrlCsp().then((allowedRedirect) => {
+                    if (!allowedRedirect) {
+                        compat_logger.error("CSP for BD Store Home was not allowed, plugin downloads may not work properly");
+                    }
+                });
+            }
+        });
         injectTab(createStoreTab);
     },
     stop() {
